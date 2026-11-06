@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0709" />
+<meta name="description" content="Duelo de Magma: arena 3D de roca y lava. Pilota un robot con lanzacohetes y espada, y devuelve los proyectiles con un parry." />
+<title>Duelo de Magma · Arena de Parry 3D</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23120c10'/%3E%3Cpath d='M14 46 26 16l8 16 8-10 8 24z' fill='%23ff5a1f'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./style.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/addons/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="stage" aria-label="Arena 3D de Duelo de Magma"></canvas>
+  <div id="vignette" aria-hidden="true"></div>
+  <div id="damageFlash" aria-hidden="true"></div>
+  <div id="parryFlash" aria-hidden="true"></div>
+
+  <div id="loading" class="loading">
+    <div class="loading__mark"></div>
+    <div class="loading__text">CALIBRANDO ARENA</div>
+    <div class="loading__bar"><i></i></div>
+  </div>
+
+  <main id="menu" class="menu">
+    <div class="menu__noise" aria-hidden="true"></div>
+    <div class="menu__top">
+      <span class="brand"><i></i> MAGMA PROTOCOL</span>
+      <span class="menu__tag">ARENA 07 · SECTOR VOLCÁNICO</span>
+    </div>
+    <div class="menu__content">
+      <div class="eyebrow"><span>DUELO DE COMBATE</span><b>1 VS 1</b></div>
+      <h1 class="title">DUELO<br /><span>DE MAGMA</span></h1>
+      <p class="tagline">Dos robots. Una arena de roca viva.<br />Devuelve sus cohetes con la espada.</p>
+      <div class="menu__actions">
+        <button id="startBtn" class="btn btn--primary" type="button">
+          <span>ENTRAR A LA ARENA</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" /></svg>
+        </button>
+        <span class="menu__hint">Consejo: el <b>parry</b> funciona si miras al proyectil.</span>
+      </div>
+      <div class="controls-card">
+        <div class="controls-card__col">
+          <span class="controls-card__label">MOVERSE</span>
+          <div class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>o joystick</span></div>
+        </div>
+        <div class="controls-card__col">
+          <span class="controls-card__label">APUNTAR</span>
+          <div class="keys"><kbd>RATÓN</kbd><span>o arrastra el dedo</span></div>
+        </div>
+        <div class="controls-card__col">
+          <span class="controls-card__label">COHETE</span>
+          <div class="keys"><kbd>CLIC IZQ.</kbd><span>/ botón FUEGO</span></div>
+        </div>
+        <div class="controls-card__col">
+          <span class="controls-card__label">ESPADA / PARRY</span>
+          <div class="keys"><kbd>CLIC DER.</kbd><span>/ botón ESPADA</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="menu__foot">
+      <span><i class="dot dot--orange"></i> LAVA SEGURA · EL GLOW NO HACE DAÑO</span>
+      <span class="menu__foot-right">MEJOR CON SONIDO</span>
+    </div>
+  </main>
+
+  <section id="hud" class="hud" aria-hidden="true">
+    <div class="hud__top">
+      <div class="player-card">
+        <div class="player-card__head">
+          <span class="player-card__name">CENTINELA-01</span>
+          <span class="player-card__hp"><b id="playerHpText">110</b> / 110</span>
+        </div>
+        <div class="bar bar--player"><i id="playerHpFill"></i><span class="bar__chips"></span></div>
+        <div class="player-card__sub"><span class="status-dot"></span> <span id="playerState">SISTEMAS OK</span></div>
+      </div>
+
+      <div class="enemy-card">
+        <div class="enemy-card__top">
+          <span>RIVAL</span>
+          <b>VULCANO-02</b>
+          <span class="enemy-card__pips"><i></i><i></i><i></i></span>
+        </div>
+        <div class="bar bar--enemy"><i id="enemyHpFill"></i><span class="bar__chips"></span></div>
+      </div>
+
+      <div class="hud__stats">
+        <div><span>TIEMPO</span><b id="timeText">00:00</b></div>
+        <div><span>PARRYS</span><b id="parryText">0</b></div>
+        <button id="muteBtn" class="icon-btn" type="button" aria-label="Silenciar sonido">
+          <svg class="icon-sound" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Z" /><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12"/></svg>
+          <svg class="icon-muted" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Z" /><path d="m16 9 5 6m0-6-5 6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="countdown" class="countdown" aria-live="polite"></div>
+    <div id="reticle" class="reticle"><i></i><span class="reticle__ring"></span><span class="reticle__alert">PARRY</span></div>
+    <div id="hint" class="hint"><span class="hint__key">ESPADA</span><span id="hintText">Mira al cohete y pulsa ESPADA para devolverlo</span></div>
+    <div id="toast" class="toast"></div>
+
+    <div id="moveZone" class="move-zone" aria-hidden="true">
+      <div id="stickBase" class="stick">
+        <span class="stick__ring"></span>
+        <span class="stick__cross"></span>
+        <div id="stickKnob" class="stick__knob"><i></i></div>
+      </div>
+      <span class="move-label">MOVER</span>
+    </div>
+
+    <div class="actions">
+      <button id="swordBtn" class="action action--sword" type="button" aria-label="Espada y parry">
+        <span class="action__cooldown" id="swordCd"></span>
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <path d="M46 8 24 30l-4 10 10-4 22-22-6-6Z" />
+          <path d="m20 38-7 7 6 6 7-7M27 40l-3 3M12 51l-3 3" />
+        </svg>
+        <span class="action__label">ESPADA</span>
+        <span class="action__sub">PARRY</span>
+      </button>
+      <button id="fireBtn" class="action action--fire" type="button" aria-label="Disparar cohete">
+        <span class="action__cooldown" id="fireCd"></span>
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <path d="M32 6c8 8 11 17 11 27l-5 6H26l-5-6c0-10 3-19 11-27Z" />
+          <circle cx="32" cy="25" r="5" />
+          <path d="m26 39-9 12 12-3M38 39l9 12-12-3M28 47h8l-4 10-4-10Z" />
+        </svg>
+        <span class="action__label">FUEGO</span>
+        <span class="action__sub">COHETE</span>
+      </button>
+    </div>
+  </section>
+
+  <section id="endScreen" class="end" aria-hidden="true">
+    <div class="end__panel">
+      <span id="endEyebrow" class="end__eyebrow">DUELO FINALIZADO</span>
+      <h2 id="endTitle" class="end__title">VICTORIA</h2>
+      <p id="endSub" class="end__sub">VULCANO-02 ha caído.</p>
+      <div class="end__stats">
+        <div><span>TIEMPO</span><b id="endTime">00:00</b></div>
+        <div><span>PARRYS</span><b id="endParries">0</b></div>
+        <div><span>DAÑO</span><b id="endDamage">0</b></div>
+      </div>
+      <button id="restartBtn" class="btn btn--primary" type="button"><span>REVANCHA</span><svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6" /></svg></button>
+      <button id="menuBtn" class="btn btn--ghost" type="button"><span>VOLVER AL MENÚ</span></button>
+    </div>
+  </section>
+
+  <div id="rotateNotice" class="rotate-notice">
+    <span>Gira el dispositivo</span>
+    <small>La arena se ve mejor en horizontal</small>
+  </div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
